@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Recovering my iPhone 13 Camera Response Curves using Debevec &amp; Malik method</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <style>
+  body{max-width:820px;margin:2rem auto;padding:0 16px;font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.55;color:#1a1a1a}
+  img{max-width:100%;height:auto}
+  table{border-collapse:collapse;margin:1rem 0;font-size:.92em;display:block;overflow-x:auto}
+  th,td{border:1px solid #ccc;padding:4px 9px;text-align:left}
+  th{background:#f3f3f1}
+  pre{background:#f6f6f4;padding:10px 12px;overflow-x:auto}
+  code{font-family:Menlo,Consolas,monospace;font-size:.92em}
+  </style>
+</head>
+<body>
+<h1
+id="recovering-my-iphone-13-camera-response-curves-with-debevec-malik">Recovering
+my iPhone 13 Camera Response Curves using Debevec &amp; Malik method</h1>
+<p><em>CENG 587 High Dynamic Range Imaging, Homework 1, Anıl
+Kılıç</em></p>
+<p>For this homework I chose <strong>Option 1</strong> which is
+implementing a response curve recovery algorithm myself. I selected the
+method of <strong>Debevec and Malik</strong> (“Recovering High Dynamic
+Range Radiance Maps from Photographs”, SIGGRAPH 1997) since I already
+wrote a reflection on this paper. In my reflection I said that the
+recovered curves are not compared with a ground truth, the λ value is
+not reported and the pixels are selected by hand. In this homework I had
+the chance to do these three things myself.</p>
+<p>In this post I explain how I implemented the method. Then I validate
+it on the virtual camera whose response is known. After that I show the
+effect of the parameters, the curves of the four shared cameras and the
+running times. The last part is the response curve of my own phone which
+was the hardest part of the homework.</p>
+<p><strong>Contents</strong></p>
+<ol type="1">
+<li>The method in short</li>
+<li>Implementation</li>
+<li>Validation on the virtual camera</li>
+<li>Difficulties I faced</li>
+<li>Parameters</li>
+<li>The four real cameras</li>
+<li>Running times</li>
+<li>My phone: iPhone 13</li>
+<li>HDR images</li>
+<li>Limitations and conclusion</li>
+</ol>
+<hr />
+<h2 id="the-method-in-short">1. The method in short</h2>
+<p>A camera does not store the radiance of the scene. It stores pixel
+values which are a nonlinear function
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>f</mi><annotation encoding="application/x-tex">f</annotation></semantics></math>
+of the exposure
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><mo>=</mo><mi>E</mi><mi mathvariant="normal">Δ</mi><mi>t</mi></mrow><annotation encoding="application/x-tex">X = E \Delta t</annotation></semantics></math>
+(irradiance times exposure time). For pixel
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
+in photograph
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>
+the pixel value is:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Z</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo>=</mo><mi>f</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>E</mi><mi>i</mi></msub><mspace width="0.167em"></mspace><mi mathvariant="normal">Δ</mi><msub><mi>t</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">Z_{ij} = f(E_i \, \Delta t_j)</annotation></semantics></math></p>
+<p>Authors assume that
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>f</mi><annotation encoding="application/x-tex">f</annotation></semantics></math>
+increases monotonically so it can be inverted. By taking the inverse and
+the natural logarithm and defining
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo>=</mo><mrow><mi mathvariant="normal">ln</mi><mo>&#8289;</mo></mrow><msup><mi>f</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup></mrow><annotation encoding="application/x-tex">g = \ln f^{-1}</annotation></semantics></math>
+the equation becomes:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>Z</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mrow><mi mathvariant="normal">ln</mi><mo>&#8289;</mo></mrow><msub><mi>E</mi><mi>i</mi></msub><mo>+</mo><mrow><mi mathvariant="normal">ln</mi><mo>&#8289;</mo></mrow><mi mathvariant="normal">Δ</mi><msub><mi>t</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">g(Z_{ij}) = \ln E_i + \ln \Delta t_j</annotation></semantics></math></p>
+<p>Here
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>Z</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><annotation encoding="application/x-tex">Z_{ij}</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><msub><mi>t</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">\Delta t_j</annotation></semantics></math>
+are known while
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>E</mi><mi>i</mi></msub><annotation encoding="application/x-tex">E_i</annotation></semantics></math>
+are unknown. Since pixel values are integers between 0 and 255,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>
+has only 256 values. These values are found together with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">ln</mi><mo>&#8289;</mo></mrow><msub><mi>E</mi><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">\ln E_i</annotation></semantics></math>
+of the selected pixels by minimizing the objective function:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo>=</mo><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>P</mi></munderover><mo stretchy="false" form="prefix">{</mo><mi>w</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>Z</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo><mspace width="0.167em"></mspace><mo stretchy="false" form="prefix">[</mo><mi>g</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>Z</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mrow><mi mathvariant="normal">ln</mi><mo>&#8289;</mo></mrow><msub><mi>E</mi><mi>i</mi></msub><mo>−</mo><mrow><mi mathvariant="normal">ln</mi><mo>&#8289;</mo></mrow><mi mathvariant="normal">Δ</mi><msub><mi>t</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">]</mo><msup><mo stretchy="false" form="postfix">}</mo><mn>2</mn></msup><mo>+</mo><mi>λ</mi><munderover><mo>∑</mo><mrow><mi>z</mi><mo>=</mo><mn>1</mn></mrow><mn>254</mn></munderover><mo stretchy="false" form="prefix">[</mo><mi>w</mi><mo stretchy="false" form="prefix">(</mo><mi>z</mi><mo stretchy="false" form="postfix">)</mo><mspace width="0.167em"></mspace><msup><mi>g</mi><mo>″</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>z</mi><mo stretchy="false" form="postfix">)</mo><msup><mo stretchy="false" form="postfix">]</mo><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">O = \sum_{i=1}^{N} \sum_{j=1}^{P} \{ w(Z_{ij}) \, [ g(Z_{ij}) - \ln E_i - \ln \Delta t_j ] \}^2 + \lambda \sum_{z=1}^{254} [ w(z) \, g&#39;&#39;(z) ]^2</annotation></semantics></math></p>
+<p>The first term is the data term. The second term is the smoothness
+term where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>g</mi><mo>″</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>z</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>z</mi><mo>−</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mn>2</mn><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>z</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>z</mi><mo>+</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">g&#39;&#39;(z) = g(z-1) - 2g(z) + g(z+1)</annotation></semantics></math>.
+Here
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>w</mi><annotation encoding="application/x-tex">w</annotation></semantics></math>
+is a hat function which gives less weight to the pixel values close to 0
+and 255. Also the constraint
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mn>128</mn><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">g(128) = 0</annotation></semantics></math>
+is added to fix the scale. Since the objective is quadratic it is a
+linear least squares problem.</p>
+<p>After
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>
+is found the radiance of each pixel is obtained from all photographs
+with a weighted average. With
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>W</mi><mi>i</mi></msub><mo>=</mo><msub><mo>∑</mo><mi>j</mi></msub><mi>w</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>Z</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">W_i = \sum_{j} w(Z_{ij})</annotation></semantics></math>
+as the total weight of pixel
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">ln</mi><mo>&#8289;</mo></mrow><msub><mi>E</mi><mi>i</mi></msub><mo>=</mo><mfrac><mn>1</mn><msub><mi>W</mi><mi>i</mi></msub></mfrac><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>P</mi></munderover><mi>w</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>Z</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo><mspace width="0.167em"></mspace><mo stretchy="false" form="prefix">(</mo><mi>g</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>Z</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mrow><mi mathvariant="normal">ln</mi><mo>&#8289;</mo></mrow><mi mathvariant="normal">Δ</mi><msub><mi>t</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\ln E_i = \frac{1}{W_i} \sum_{j=1}^{P} w(Z_{ij}) \, ( g(Z_{ij}) - \ln \Delta t_j )</annotation></semantics></math></p>
+<h2 id="implementation">2. Implementation</h2>
+<p>The implementation is a single Python file, <code>hdr.py</code>,
+which is about 300 lines. I used <strong>NumPy</strong> for the arrays
+and the least squares solver, <strong>Pillow</strong> for reading the
+images and <strong>Matplotlib</strong> for the plots. I did not use any
+HDR library or any library that computes the response curve.</p>
+<p>It is run like this:</p>
+<pre><code>python hdr.py &lt;image_folder&gt; [--exif] [--truth srgb|linear] [--samples 200] [--lam 50]</code></pre>
+<p>For each sequence it saves the plot of the response curve, the curve
+as a CSV file, the radiance map as a Radiance <code>.hdr</code> file and
+a tone mapped PNG. The steps of the program are below.</p>
+<p><strong>Loading the images and exposure times.</strong> Images are
+read in order. If an image is larger than 1600 pixels on its long side
+it is resized to 1600 pixels. For the shared sequences I used the rule
+in the readme file which says each image has twice the exposure of the
+previous one. Thus the exposures are 1, 2, 4 and so on since only the
+ratios are needed. For my phone the shutter time and the ISO are read
+from the EXIF data of each file with the <code>--exif</code> option. The
+exposure is shutter time multiplied by ISO.</p>
+<p><strong>Selecting the pixels.</strong> According to the paper
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mi>P</mi><mo>−</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>&gt;</mo><mn>255</mn></mrow><annotation encoding="application/x-tex">N(P-1) &gt; 255</annotation></semantics></math>
+is enough. This means about 50 pixels for 9 photographs. Authors
+selected the pixels by hand but I wanted to select them automatically. I
+used two rules.</p>
+<p>The first rule is using only flat regions. I compute the gradient
+magnitude of the middle exposure. Only the pixels whose gradient is
+below the median are kept. A pixel in a flat region keeps its value even
+if the camera moves a few pixels between the photographs.</p>
+<p>The second rule is covering all brightness levels equally. If pixels
+are selected randomly they follow the histogram of the image. For a dark
+scene most of them would be dark pixels. Instead I take N target
+brightness levels with equal spacing between the darkest and the
+brightest candidate. For each level one random candidate pixel with that
+brightness is selected.</p>
+<p>Duplicate pixels are removed at the end. Because of this when 200
+samples are requested the result is between 150 and 200 pixels depending
+on the scene.</p>
+<p><strong>Solving for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>.</strong>
+This part follows the <code>gsolve</code> code in the appendix of the
+paper. I wrote it with NumPy indexing instead of loops. For N pixels and
+P photographs the matrix has
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mi>P</mi><mo>+</mo><mn>255</mn></mrow><annotation encoding="application/x-tex">NP + 255</annotation></semantics></math>
+rows and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>256</mn><mo>+</mo><mi>N</mi></mrow><annotation encoding="application/x-tex">256 + N</annotation></semantics></math>
+columns. For example with 200 pixels and 9 photographs it is 2055 × 456.
+It is solved with <code>numpy.linalg.lstsq</code> for each color channel
+separately.</p>
+<p><strong>Radiance map.</strong> This is the weighted average given
+above. It is computed for the whole image by processing one exposure at
+a time so the memory usage stays low. Some pixels are black or white in
+every exposure. Their total weight is zero. I take these pixels from the
+longest exposure if they are black. If they are saturated I take them
+from the shortest exposure.</p>
+<p><strong>Output.</strong> I wrote a small function that saves the
+radiance map in the Radiance <code>.hdr</code> (RGBE) format. To view
+the result I also wrote a simple global tone mapping which is Reinhard’s
+operator with a white point followed by gamma 2.2. The tone mapping is
+not a part of the method.</p>
+<h2 id="validation-on-the-virtual-camera">3. Validation on the virtual
+camera</h2>
+<p>The images in the <code>virtual_camera</code> folder are rendered
+with a path tracer and saved with a known response. Thus the correct
+curve is known. For the <code>srgb</code> sequence it is the sRGB
+formula given in the homework text. For the <code>linear</code> sequence
+it is a straight line. Since the method finds
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>
+only up to a constant, I shifted the ideal curve so that it is also 0 at
+pixel value 128. Then I measured the RMS difference for the pixel values
+from 5 to 250. The unit is the natural logarithm of exposure. An error
+of 0.01 means about 1% error in exposure.</p>
+<p><img src="figures/validation.png"
+alt="Recovered curves of the sRGB and linear virtual cameras with the ideal curves" /></p>
+<p><em>Recovered curves and the ideal response (dashed) for the sRGB and
+the linear virtual cameras.</em></p>
+<table>
+<thead>
+<tr>
+<th>Sequence</th>
+<th>Red</th>
+<th>Green</th>
+<th>Blue</th>
+<th>Mean</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>srgb</td>
+<td>0.018 ± 0.003</td>
+<td>0.011 ± 0.001</td>
+<td>0.083 ± 0.003</td>
+<td>0.037</td>
+</tr>
+<tr>
+<td>linear</td>
+<td>0.025 ± 0.003</td>
+<td>0.022 ± 0.002</td>
+<td>0.040 ± 0.004</td>
+<td>0.029</td>
+</tr>
+<tr>
+<td>noise25</td>
+<td>0.089 ± 0.010</td>
+<td>0.094 ± 0.007</td>
+<td>0.097 ± 0.011</td>
+<td>0.093</td>
+</tr>
+<tr>
+<td>noise50</td>
+<td>0.098 ± 0.014</td>
+<td>0.112 ± 0.013</td>
+<td>0.136 ± 0.016</td>
+<td>0.115</td>
+</tr>
+<tr>
+<td>noise100</td>
+<td>0.164 ± 0.019</td>
+<td>0.171 ± 0.013</td>
+<td>0.182 ± 0.024</td>
+<td>0.172</td>
+</tr>
+<tr>
+<td>noise150</td>
+<td>0.205 ± 0.015</td>
+<td>0.211 ± 0.017</td>
+<td>0.220 ± 0.009</td>
+<td>0.212</td>
+</tr>
+</tbody>
+</table>
+<p><em>RMS error compared to the ideal response (ln exposure, pixel
+values 5 to 250). Mean ± standard deviation over 5 random seeds of the
+pixel selection with 200 samples and λ = 50.</em></p>
+<p>These results show that the implementation works correctly. For the
+sRGB camera without noise the red and green curves are within 1 to 2% of
+the ideal curve. For the linear camera the error is between 2 and
+4%.</p>
+<p>The weak part is the top of the blue curve. Below pixel value 225 all
+three channels of the sRGB camera are within about 1% (RMS 0.013, 0.006
+and 0.011). Above 225 the blue channel moves away from the ideal curve
+(RMS 0.26 for the values 226 to 250) while red and green stay around
+0.02 to 0.03. The hat function gives very small weight to these values.
+Thus only a few samples decide the result there.</p>
+<p>Noise increases the error gradually. The error is 0.04 without noise
+while it is 0.21 for the sequence with the most noise. As seen in the
+figure below the middle part of the curve does not change much. The
+error is mostly at the two ends of the curve.</p>
+<p><img src="figures/noise.png"
+alt="Recovered green curves for increasing noise" /></p>
+<p><em>Green channel recovered from the sRGB virtual camera for
+increasing noise.</em></p>
+<h2 id="difficulties-i-faced">4. Difficulties I faced</h2>
+<h3 id="saturated-pixels-which-are-not-255">4.1 Saturated pixels which
+are not 255</h3>
+<p>This was the main problem of my implementation. The first result on
+the sRGB virtual camera had an RMS error of <strong>0.26</strong>
+although the linear camera was already correct. The curve was the same
+as the ideal one up to about 220. After that it bent to the right.</p>
+<p>First I checked the images. For the pixels with a given value in one
+image I looked at their values in the next image. They were consistent
+with the sRGB formula. For example value 150 should become 204.9 when
+the exposure is doubled. In the images it becomes 204 or 205. Thus the
+images were correct which means the problem was in my fit.</p>
+<p>Then I looked at the selected pixels one by one. Some of them were on
+the ceiling lights which are saturated in every exposure. However in a
+JPEG image a saturated pixel is not always exactly 255. One of these
+pixels had the following values in the nine exposures:</p>
+<pre><code>192, 240, 251, 239, 238, 241, 254, 255, 255</code></pre>
+<p>The hat function gives zero weight to 255 but the weight of 238 is
+17. Thus the solver used this pixel as if it had the value 240 at
+exposures which are 2, 16 and 32 times longer. This pulled the top of
+the curve to much higher exposures.</p>
+<p>I solved this with a rule that uses the order of the exposures.
+<strong>When a pixel reaches 250 in a shorter exposure it is ignored in
+all longer exposures</strong> since it can only be saturated there.
+Giving zero weight to all values above 250 did not solve the problem
+because the wrong values go down to about 238. The same rule is also
+used for the radiance map.</p>
+<table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>RMS error (sRGB, mean of channels)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All pixels are used</td>
+<td>0.263</td>
+</tr>
+<tr>
+<td>Clipped pixels are ignored</td>
+<td>0.036</td>
+</tr>
+</tbody>
+</table>
+<p><img src="figures/clipping_fix.png"
+alt="Top part of the green curve with and without the rule" /></p>
+<p><em>Top part of the green curve before and after the rule.</em></p>
+<h3 id="selecting-the-pixels-automatically">4.2 Selecting the pixels
+automatically</h3>
+<p>This is explained in Section 2. Selecting from flat regions was
+important for my phone since it moved a few pixels between the
+photographs. Covering dark and bright values equally was important for
+all sequences.</p>
+<h3 id="large-images">4.3 Large images</h3>
+<p>The Canon images are 5184 × 3456 pixels. Nine of these images use a
+lot of memory as floating point arrays. Also the response curve does not
+need this resolution. Thus the images are resized to 1600 pixels on the
+long side while loading. The radiance map is computed at this size.</p>
+<h3 id="exposure-times-of-the-shared-sequences">4.4 Exposure times of
+the shared sequences</h3>
+<p>The readme file says to assume that the exposure doubles for each
+image so I did that. Apart from that I looked at the EXIF data to see
+the real values. The Canon sequence has doubling shutter times at a
+fixed aperture of f/16. However the Nikon D2H sequence is different. Its
+shutter times are 1/400, 1/320, 1/200, 1/160, 1/100, 1/80, 1/40, 1/20
+and 1/10 seconds. This is because the aperture also changes from f/10 to
+f/4.2. When the shutter time is divided by the square of the f-number
+the ratios between the images are 1.73, 2.29, 1.75, 2.30, 1.77, 2.0, 2.0
+and 2.0. Thus the exposure doubles on average. This showed me that the
+exposure is not only the shutter time which became important for my
+phone too.</p>
+<h2 id="parameters">5. Parameters</h2>
+<p>The λ value is not reported in the paper. Thus I tried different
+values. The table shows the mean RMS error over three channels and 5
+seeds.</p>
+<table>
+<thead>
+<tr>
+<th>λ</th>
+<th>srgb</th>
+<th>noise50</th>
+<th>noise150</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0.1</td>
+<td>0.080</td>
+<td>0.210</td>
+<td>0.373</td>
+</tr>
+<tr>
+<td>1</td>
+<td>0.068</td>
+<td>0.162</td>
+<td>0.280</td>
+</tr>
+<tr>
+<td>10</td>
+<td>0.043</td>
+<td>0.135</td>
+<td>0.224</td>
+</tr>
+<tr>
+<td><strong>50</strong></td>
+<td><strong>0.037</strong></td>
+<td>0.115</td>
+<td>0.212</td>
+</tr>
+<tr>
+<td>100</td>
+<td>0.041</td>
+<td><strong>0.099</strong></td>
+<td><strong>0.209</strong></td>
+</tr>
+<tr>
+<td>1000</td>
+<td>0.202</td>
+<td>0.191</td>
+<td>0.228</td>
+</tr>
+</tbody>
+</table>
+<p><img src="figures/lambda.png"
+alt="Green curve of the noisiest sequence for three lambda values" /></p>
+<p><em>The sequence with the most noise (noise150), green channel, for
+three values of λ.</em></p>
+<p>When λ is small the curve follows the noise so it is not smooth. It
+is not monotonic either. When λ is very large the curve cannot bend
+enough at the dark end. In this case even the sequence without noise has
+an error of 0.20. The values between 50 and 100 are the best for all
+three sequences. The sequences with more noise need a larger value. I
+used λ = 50 for all results in this post.</p>
+<p>The number of pixels has a much smaller effect:</p>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<thead>
+<tr>
+<th>Samples requested</th>
+<th>srgb</th>
+<th>noise50</th>
+<th>noise150</th>
+<th>Solve time for 3 channels (s)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>50</td>
+<td>0.026</td>
+<td>0.119</td>
+<td>0.191</td>
+<td>0.14</td>
+</tr>
+<tr>
+<td>100</td>
+<td>0.050</td>
+<td>0.154</td>
+<td>0.228</td>
+<td>0.13</td>
+</tr>
+<tr>
+<td>200</td>
+<td>0.037</td>
+<td>0.115</td>
+<td>0.212</td>
+<td>0.18</td>
+</tr>
+<tr>
+<td>500</td>
+<td>0.029</td>
+<td>0.118</td>
+<td>0.211</td>
+<td>0.47</td>
+</tr>
+<tr>
+<td>1000</td>
+<td>0.026</td>
+<td>0.125</td>
+<td>0.211</td>
+<td>0.70</td>
+</tr>
+</tbody>
+</table>
+<p>There is no clear trend in this table. The differences between the
+rows are similar to the differences between the random seeds. I could
+not find why the row with 100 samples is a little worse. As the paper
+says 50 pixels are already enough when they are selected well. More
+pixels only increase the solve time. I used 200 as the default
+value.</p>
+<h2 id="the-four-real-cameras">6. The four real cameras</h2>
+<p>The real cameras do not have a ground truth. Thus I can only check
+that the curves are smooth and monotonic and the three channels are
+close to each other. All of the curves satisfy this.</p>
+<p><img src="figures/cameras_rgb.png"
+alt="Recovered red, green and blue curves of the four shared cameras" /></p>
+<p><em>Recovered curves of Canon EOS 550D, Minolta DiMAGE A1, Nikon
+Coolpix E5400 and Nikon D2H. The dots are the selected pixels at their
+fitted exposures.</em></p>
+<p><img src="figures/cameras.png"
+alt="Green curves of all cameras with the sRGB curve" /></p>
+<p><em>Green channel of all cameras including my phone compared to the
+ideal sRGB curve.</em></p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Camera</th>
+<th>Slope in midtones</th>
+<th>Exposure range between Z = 20 and Z = 235</th>
+<th>Largest difference between red and blue</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Canon EOS 550D</td>
+<td>1.74</td>
+<td>5.6 stops</td>
+<td>0.26</td>
+</tr>
+<tr>
+<td>Minolta DiMAGE A1</td>
+<td>1.62</td>
+<td>5.2 stops</td>
+<td>0.07</td>
+</tr>
+<tr>
+<td>Nikon Coolpix E5400</td>
+<td>1.75</td>
+<td>5.3 stops</td>
+<td>0.08</td>
+</tr>
+<tr>
+<td>Nikon D2H</td>
+<td>1.63</td>
+<td>4.9 stops</td>
+<td>0.07</td>
+</tr>
+<tr>
+<td>iPhone 13 (Lightroom)</td>
+<td>1.57</td>
+<td>5.0 stops</td>
+<td>0.09</td>
+</tr>
+<tr>
+<td>ideal sRGB</td>
+<td>2.12</td>
+<td>6.9 stops</td>
+<td>–</td>
+</tr>
+</tbody>
+</table>
+<p><em>Slope in midtones is the change of ln exposure divided by the
+change of ln pixel value between Z = 64 and Z = 192 which is similar to
+a gamma value. The last column is the largest difference between the red
+and blue curves for Z = 20 to 235 in ln units.</em></p>
+<p>None of the cameras has an sRGB response. All of them are steeper
+than sRGB in the dark half. Pixel value 50 is reached at ln exposure
+−1.2 to −1.4 for the cameras while sRGB reaches it at −1.9. This is
+about 0.8 to 1.1 stops more light relative to pixel value 128. This
+means the cameras make the dark regions darker than sRGB which gives an
+image with more contrast.</p>
+<p>Apart from that the cameras cover a smaller exposure range with 8
+bits. Between pixel values 20 and 235 the cameras cover about 5 to 5.6
+stops while sRGB covers almost 7 stops.</p>
+<p>The curves of the Canon and the iPhone bend at the top instead of
+going directly to 255. Also the channels of the Canon are the most
+different from each other. Its red and blue curves have a difference up
+to 0.26 while for the other cameras the three channels are within
+0.1.</p>
+<h2 id="running-times">7. Running times</h2>
+<p>The times are measured on a MacBook with an Apple M4 processor and 24
+GB of memory using Python 3.13.9 and NumPy 2.3.5. The table shows the
+median of 5 runs in seconds with 200 requested samples and λ = 50.</p>
+<table>
+<colgroup>
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+</colgroup>
+<thead>
+<tr>
+<th>Sequence</th>
+<th>Images</th>
+<th>Size used</th>
+<th>Samples</th>
+<th>Load</th>
+<th>Sample + solve</th>
+<th>Radiance map</th>
+<th>Total</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>srgb</td>
+<td>9</td>
+<td>1024×1024</td>
+<td>163</td>
+<td>0.04</td>
+<td>0.18</td>
+<td>0.34</td>
+<td>0.57</td>
+</tr>
+<tr>
+<td>linear</td>
+<td>7</td>
+<td>1024×1024</td>
+<td>152</td>
+<td>0.03</td>
+<td>0.20</td>
+<td>0.29</td>
+<td>0.54</td>
+</tr>
+<tr>
+<td>noise25</td>
+<td>9</td>
+<td>1024×1024</td>
+<td>180</td>
+<td>0.05</td>
+<td>0.21</td>
+<td>0.34</td>
+<td>0.58</td>
+</tr>
+<tr>
+<td>noise50</td>
+<td>9</td>
+<td>1024×1024</td>
+<td>189</td>
+<td>0.05</td>
+<td>0.23</td>
+<td>0.34</td>
+<td>0.61</td>
+</tr>
+<tr>
+<td>noise100</td>
+<td>9</td>
+<td>1024×1024</td>
+<td>199</td>
+<td>0.06</td>
+<td>0.23</td>
+<td>0.33</td>
+<td>0.62</td>
+</tr>
+<tr>
+<td>noise150</td>
+<td>9</td>
+<td>1024×1024</td>
+<td>200</td>
+<td>0.06</td>
+<td>0.23</td>
+<td>0.32</td>
+<td>0.60</td>
+</tr>
+<tr>
+<td>Canon EOS 550D</td>
+<td>9</td>
+<td>1600×1067</td>
+<td>200</td>
+<td>1.22</td>
+<td>0.27</td>
+<td>0.50</td>
+<td>1.99</td>
+</tr>
+<tr>
+<td>Minolta DiMAGE A1</td>
+<td>13</td>
+<td>1600×1200</td>
+<td>200</td>
+<td>0.18</td>
+<td>0.29</td>
+<td>0.71</td>
+<td>1.20</td>
+</tr>
+<tr>
+<td>Nikon Coolpix E5400</td>
+<td>16</td>
+<td>1600×1200</td>
+<td>197</td>
+<td>0.68</td>
+<td>0.32</td>
+<td>0.84</td>
+<td>1.83</td>
+</tr>
+<tr>
+<td>Nikon D2H</td>
+<td>9</td>
+<td>1600×1060</td>
+<td>200</td>
+<td>0.39</td>
+<td>0.26</td>
+<td>0.48</td>
+<td>1.13</td>
+</tr>
+<tr>
+<td>iPhone 13</td>
+<td>9</td>
+<td>1600×1200</td>
+<td>200</td>
+<td>0.27</td>
+<td>0.29</td>
+<td>0.53</td>
+<td>1.09</td>
+</tr>
+</tbody>
+</table>
+<p>Recovering the curve is fast. Selecting the pixels and solving the
+three least squares problems takes about 0.2 to 0.3 seconds for every
+sequence. This is because the size of the problem depends on the number
+of pixels and photographs but not on the image size.</p>
+<p>The time of the radiance map depends on the number of pixels
+multiplied by the number of photographs. That is why the Nikon sequence
+with 16 images is the slowest in that column. Also loading can take the
+most time. For example decoding nine Canon JPEG files of 18 megapixels
+takes longer than the algorithm.</p>
+<h2 id="my-phone-iphone-13">8. My phone: iPhone 13</h2>
+<h3 id="setup">8.1 Setup</h3>
+<p>My phone is an Apple iPhone 13. I used its main camera which has a
+5.1 mm lens with a fixed aperture of f/1.6.</p>
+<p>To capture the photographs I used the camera of the Adobe Lightroom
+app for iOS (version 12.0.0) in Professional mode. In this mode the
+shutter time and the ISO can be set by hand.</p>
+<p>The final sequence has 9 photographs. ISO is fixed at 40. The shutter
+times are 1/1000, 1/500, 1/250, 1/125, 1/60, 1/30, 1/15, 1/8 and 1/4
+seconds. The photographs were captured as <strong>DNG (raw)</strong>
+files. Then they were exported from Lightroom as JPG with the same
+settings for every photograph without any edits.</p>
+<p>The scene is my desk with a monitor. It has a bright screen, a dark
+power adapter and a light colored table. The phone was resting on the
+desk during the whole sequence. I did not use a tripod.</p>
+<p><img src="figures/iphone_sequence.jpg"
+alt="Nine exposures of the final iPhone sequence" /></p>
+<p><em>The final sequence from 1/1000 s to 1/4 s at ISO 40.</em></p>
+<p>I needed four attempts to obtain this sequence. I think the failed
+attempts are more interesting than the successful one so I explain them
+too.</p>
+<h3 id="a-test-before-running-the-algorithm">8.2 A test before running
+the algorithm</h3>
+<p>The algorithm assumes that the pixel value depends only on the
+exposure. This can be tested directly on the photographs without knowing
+the response. I take all pixels with a certain value in one photograph.
+Then I look at their value in the next photograph. If the exposure step
+is the same this mapping should be the same for every pair of
+photographs. I applied this test on the means of 32 × 32 blocks so small
+camera movement does not affect it. I also read the EXIF data of every
+file. With this I noticed problems which I did not see while
+capturing.</p>
+<h3 id="attempt-1-iso-was-not-fixed">8.3 Attempt 1: ISO was not
+fixed</h3>
+<p>Attempts 1 and 2 were captured directly as JPG in the Lightroom
+camera.</p>
+<p>The first sequence had eleven photographs of the view from my window
+with shutter times from 1/10900 to 1/25 seconds. The EXIF data showed
+that the ISO changed between 40 and 125 from one photograph to another.
+Thus the real exposure was different from what I set with the shutter
+time. However the brightness did not follow the shutter time even for
+the photographs with the same ISO. To measure this roughly I converted
+the pixel values to linear values with the sRGB formula. Then I compared
+the same blocks in two photographs:</p>
+<table>
+<thead>
+<tr>
+<th>Pair (both ISO 40)</th>
+<th>Exposure change in EXIF</th>
+<th>Measured change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1/5000 → 1/500 s</td>
+<td>10×</td>
+<td>2.6×</td>
+</tr>
+<tr>
+<td>1/5000 → 1/100 s</td>
+<td>50×</td>
+<td>4.1×</td>
+</tr>
+<tr>
+<td>1/2000 → 1/100 s</td>
+<td>20×</td>
+<td>2.2×</td>
+</tr>
+<tr>
+<td>1/100 → 1/25 s</td>
+<td>4×</td>
+<td>9.3×</td>
+</tr>
+</tbody>
+</table>
+<p>A step of 20× changes the image less than a step of 4×. This is not
+possible with a single response curve.</p>
+<h3 id="attempt-2-one-stop-steps-but-the-same-problem">8.4 Attempt 2:
+one stop steps but the same problem</h3>
+<p>The second sequence had thirteen photographs of my desk. Each
+photograph was about one stop apart when shutter time and ISO are
+multiplied. The steps were correct this time. However the test in
+Section 8.2 failed. For a step of one stop the blocks with green value
+60 moved to these values:</p>
+<table>
+<thead>
+<tr>
+<th>Part of the sequence</th>
+<th>Value after one stop</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dark photographs</td>
+<td>97</td>
+</tr>
+<tr>
+<td>Middle photographs</td>
+<td>70 to 77</td>
+</tr>
+<tr>
+<td>Bright end</td>
+<td>110</td>
+</tr>
+</tbody>
+</table>
+<p>In sRGB linear values the one stop steps were measured as 1.4 to 1.6
+stops in the dark photographs. In the middle photographs they were only
+0.33 to 0.44 stops. After that the image became white suddenly. This
+also happened between two photographs with the same ISO (1/100 → 1/50 s
+at ISO 125 was measured as 0.33 stops). Thus the changing ISO was not
+the only reason.</p>
+<p>This is the same behavior as attempt 1. The middle of the sequence is
+compressed while the end jumps. I think the reason is that the image
+pipeline of the phone changes its tone mapping for every photograph to
+make the image look good. In this case there is no single response
+function for these JPG files. I cannot see inside the pipeline so this
+is my conclusion from the measurements. I did not verify it directly.
+The assumption
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>=</mo><mi>f</mi><mo stretchy="false" form="prefix">(</mo><mi>E</mi><mi mathvariant="normal">Δ</mi><mi>t</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">Z = f(E \Delta t)</annotation></semantics></math>
+of Debevec and Malik is not valid for such a camera. Setting the shutter
+time and the ISO by hand does not turn this processing off.</p>
+<h3 id="attempt-3-dng-works-but-the-sequence-was-too-dark">8.5 Attempt
+3: DNG works but the sequence was too dark</h3>
+<p>For the third attempt I changed the format to DNG in the Lightroom
+camera. A DNG file contains the raw sensor data. Thus the tone mapping
+of the phone is not applied. Lightroom applies the same rendering to
+every photograph when exporting. I also kept the ISO at 40 for every
+photograph. Only the shutter time was changed from 1/8400 to 1/30
+seconds.</p>
+<p>This time the test passed. One stop steps gave the same mapping for
+every pair. However the exposure range was not suitable for an indoor
+scene. The three shortest exposures were 86 to 100% black. The longest
+exposure had only 1.7% saturated pixels. Thus there was almost no data
+for the top of the curve.</p>
+<h3 id="attempt-4-the-final-sequence">8.6 Attempt 4: the final
+sequence</h3>
+<p>I used the same settings with longer exposures from 1/1000 to 1/4
+seconds. The table below shows the test for the final sequence. Each
+column is a starting value while each row is a pair of consecutive
+photographs.</p>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+</colgroup>
+<thead>
+<tr>
+<th>Frames</th>
+<th>Step (stops)</th>
+<th>Z=40</th>
+<th>Z=60</th>
+<th>Z=90</th>
+<th>Z=120</th>
+<th>Z=150</th>
+<th>Z=180</th>
+<th>Z=210</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2 → 3</td>
+<td>1.00</td>
+<td>76</td>
+<td>94</td>
+<td>–</td>
+<td>–</td>
+<td>–</td>
+<td>–</td>
+<td>–</td>
+</tr>
+<tr>
+<td>3 → 4</td>
+<td>1.00</td>
+<td>71</td>
+<td>100</td>
+<td>145</td>
+<td>–</td>
+<td>–</td>
+<td>–</td>
+<td>–</td>
+</tr>
+<tr>
+<td>4 → 5</td>
+<td>1.06</td>
+<td>75</td>
+<td>104</td>
+<td>145</td>
+<td>178</td>
+<td>204</td>
+<td>–</td>
+<td>–</td>
+</tr>
+<tr>
+<td>5 → 6</td>
+<td>1.00</td>
+<td>78</td>
+<td>104</td>
+<td>144</td>
+<td>176</td>
+<td>199</td>
+<td>224</td>
+<td>240</td>
+</tr>
+<tr>
+<td>6 → 7</td>
+<td>1.00</td>
+<td>76</td>
+<td>106</td>
+<td>144</td>
+<td>176</td>
+<td>205</td>
+<td>225</td>
+<td>242</td>
+</tr>
+<tr>
+<td>7 → 8</td>
+<td>0.91</td>
+<td>–</td>
+<td>105</td>
+<td>142</td>
+<td>170</td>
+<td>198</td>
+<td>222</td>
+<td>243</td>
+</tr>
+<tr>
+<td>8 → 9</td>
+<td>1.00</td>
+<td>–</td>
+<td>–</td>
+<td>–</td>
+<td>176</td>
+<td>205</td>
+<td>227</td>
+<td>244</td>
+</tr>
+</tbody>
+</table>
+<p><em>Green value in the next photograph for the blocks that start at
+the value in the column header. “–” means there were not enough blocks.
+The pair 1 → 2 is not shown since photograph 1 is too dark.</em></p>
+<p>The values in each column are almost constant. The values in the 7 →
+8 row are a little lower which is consistent with its smaller step (1/15
+→ 1/8 s is 0.91 stops). This is what a single response curve gives. The
+sequence also covers the whole range. The first photograph is 59% black
+while the last one is 63% saturated.</p>
+<h3 id="the-recovered-response">8.7 The recovered response</h3>
+<p><img src="figures/iphone_response.png"
+alt="Recovered response of the iPhone 13 with Lightroom rendering" /></p>
+<p><em>Recovered response of the iPhone 13 sequence
+(<code>python hdr.py photos --exif</code>, 200 samples, λ =
+50).</em></p>
+<p>The three channels are within 0.09 of each other in ln exposure for
+the pixel values 20 to 235. Among the five cameras this curve has the
+most contrast in the midtones (the slope is 1.57 while it is 2.12 for
+sRGB). It bends softly at the top. Pixel values 20 to 235 cover about 5
+stops.</p>
+<p>The selected pixels have more noise than the other cameras. Also the
+red curve has a small wave between about 160 and 220. I think this is
+expected since the phone was not on a tripod. Its sensor is small
+too.</p>
+<p>One point should be stated clearly. The sequence was captured as DNG
+then rendered by Lightroom. Thus <strong>this curve is the response of
+the iPhone 13 sensor together with the rendering of Lightroom. It is not
+the response of Apple’s own JPG pipeline.</strong> According to attempts
+1 and 2 my conclusion is that Apple’s JPG pipeline does not have a
+single response curve which this method can recover.</p>
+<h2 id="hdr-images">9. HDR images</h2>
+<p>The homework is about the response curves. However the radiance maps
+are a good final check. A wrong curve would cause banding or wrong
+colors where the exposures are combined.</p>
+<p><img src="figures/hdr_examples.jpg"
+alt="Tone mapped radiance maps of four shared sequences" /></p>
+<p><em>Tone mapped radiance maps of the virtual sRGB camera, Canon EOS
+550D, Minolta DiMAGE A1 and Nikon Coolpix E5400.</em></p>
+<p><img src="figures/iphone_hdr.jpg"
+alt="Tone mapped radiance map of the iPhone sequence" /></p>
+<p><em>Tone mapped radiance map of my iPhone sequence. The text on the
+monitor and the dark adapter are both visible which is not possible with
+any single exposure of the sequence.</em></p>
+<p>From the darkest pixel to the brightest pixel the radiance maps cover
+between 10.6 stops (iPhone) and 16.9 stops (virtual sRGB camera). In the
+iPhone map the darkest regions are brighter than they should be. The
+darkest 1% of the image is only about 7 times darker than the median. I
+think this is caused by the lens flare of the bright monitor in the
+longest exposures. The method cannot remove this.</p>
+<h2 id="limitations-and-conclusion">10. Limitations and conclusion</h2>
+<p>The top and the bottom of the curve are the least reliable parts. The
+pixel values close to 0 and 255 have small weights and few samples. This
+is visible in the blue channel of the sRGB camera. It is also visible in
+all sequences with noise.</p>
+<p>Monotonicity of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>
+is not enforced. With λ = 50 all curves were monotonic except four very
+small decreases in the red channel of the virtual sequence with the most
+noise. However the method does not guarantee this.</p>
+<p>The exposure values must be correct. I used the readme file for the
+shared sequences while I used the EXIF data for my phone. Attempt 1
+showed that the real exposure can easily be different from the value
+that was set.</p>
+<p>The camera must have a single response curve. A modern phone does not
+satisfy this assumption. In my reflection I wrote that the biggest
+limitation of the paper is that the exposure times must be known
+exactly. After this homework I think this assumption is a bigger
+limitation for the cameras of today.</p>
+<p>The scene has to be static. The camera should not move either.
+Selecting the pixels from flat regions was enough for the small movement
+in my sequences. However the radiance map would have ghosting with
+larger movement.</p>
+<p>To summarize, the implementation recovers the known sRGB and linear
+responses within a few percent. λ between 50 and 100 gives the best
+results. About 50 pixels are enough when they are selected well. The
+whole process takes one to two seconds for a sequence. The most useful
+thing I learned is testing the data before trusting the result. Both the
+problem with the saturated pixels and the problem with my phone were
+found by looking at how the pixel values change from one exposure to the
+next. They were not found by looking at the final curve.</p>
+<h2 id="code-and-data">Code and data</h2>
+<p>The code (<code>hdr.py</code>), the script that produces the tables
+and figures of this post (<code>experiments.py</code>), my iPhone
+sequence and all results are in the submitted <code>hw1.zip</code>. The
+README file lists the dependencies and the commands.</p>
+<h2 id="references">References</h2>
+<ol type="1">
+<li>P. E. Debevec and J. Malik. Recovering High Dynamic Range Radiance
+Maps from Photographs. SIGGRAPH 1997.</li>
+<li>E. Reinhard, M. Stark, P. Shirley and J. Ferwerda. Photographic Tone
+Reproduction for Digital Images. SIGGRAPH 2002. (Used only for
+displaying the results.)</li>
+</ol>
+</body>
+</html>
