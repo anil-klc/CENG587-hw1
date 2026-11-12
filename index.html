@@ -276,9 +276,7 @@ as a CSV file, the radiance map as a Radiance <code>.hdr</code> file and
 a tone mapped PNG. The steps of the program are below.</p>
 <p><strong>Loading the images and exposure times.</strong> Images are
 read in order. If an image is larger than 1600 pixels on its long side
-it is resized to 1600 pixels. For the shared sequences I used the rule
-in the readme file which says each image has twice the exposure of the
-previous one. Thus the exposures are 1, 2, 4 and so on since only the
+it is resized to 1600 pixels. The exposures are 1, 2, 4 and so on since only the
 ratios are needed. For my phone the shutter time and the ISO are read
 from the EXIF data of each file with the <code>--exif</code> option. The
 exposure is shutter time multiplied by ISO.</p>
